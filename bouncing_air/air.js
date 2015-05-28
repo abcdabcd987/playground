@@ -235,7 +235,7 @@ function draw() {
         update_atom();
         calc_collision();
     }
-    setTimeout(draw, 10);
+    setTimeout(draw, 25);
 }
 
 calc_collision();
