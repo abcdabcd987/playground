@@ -83,8 +83,8 @@ function now() {
 var canvas = document.getElementById('canvas');
 var ctx = canvas.getContext('2d');
 
-canvas.width = window.innerWidth-20;
-canvas.height = window.innerHeight-20;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 //--- constants
 var NUM_ATOMS = 32;
