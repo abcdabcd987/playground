@@ -37,7 +37,7 @@ function dist(r1, r2) {
 function Atom(pos, vel) {
     this.pos = pos;
     this.vel = vel;
-    this.color = randomColor({hue: 'monochrome', luminosity: 'dark'});
+    this.color = '#000000';
 }
 
 Atom.prototype.get_pos = function (t) {
@@ -46,7 +46,7 @@ Atom.prototype.get_pos = function (t) {
     return V(x, y);
 }
 
-var initTime = (new Date()).getTime();
+var initTime = null;
 function now() {
     return (new Date()).getTime() - initTime;
 }
@@ -61,7 +61,7 @@ canvas.height = window.innerHeight;
 var EPS = 1e-8;
 var WIDTH = canvas.width;
 var HEIGHT = canvas.height;
-var NUM_ATOMS = ~~(WIDTH * HEIGHT * 0.00117);
+var NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00117), 700);
 var AVERAGE_VEL = 0.186;
 var RADIUS = ~~(Math.sqrt(0.06*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
 var COLOR_SET = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'monochrome'];
@@ -71,22 +71,39 @@ var COLOR_CHANGE_MOD = ~~(NUM_ATOMS*NUM_ATOMS*0.024);
 var base_time = 0;
 var cnt_collision = 0;
 var color_set_id = 0;
+var max_speed = 0;
 
 //--- init atoms
 var atoms = [];
 function init() {
     for (var i = 0; i < NUM_ATOMS; ++i) {
-        var x = RADIUS + Math.random() * (WIDTH - 2*RADIUS);
-        var y = RADIUS + Math.random() * (HEIGHT - 2*RADIUS);
+        while (true) {
+            var x = RADIUS + Math.random() * (WIDTH - 2*RADIUS);
+            var y = RADIUS + Math.random() * (HEIGHT - 2*RADIUS);
+            var pos = V(x, y);
+            var flag = true;
+            for (var j = 0; j < i && flag; ++j) {
+                var len = atoms[j].pos.del(pos).len();
+                flag = len > 2*RADIUS;
+            }
+            if (flag) break;
+        }
         var vel = AVERAGE_VEL + (Math.random()-0.5)/10;
-        var theta = Math.random() * Math.PI * 2;
+        var theta = Math.random() * 2*Math.PI;
         var vx = vel * Math.cos(theta);
         var vy = vel * Math.sin(theta);
-        atoms.push(new Atom(V(x, y), V(vx, vy)));
+        atoms.push(new Atom(pos, V(vx, vy)));
+    }
+    for (var i = 0; i < NUM_ATOMS+4; ++i) {
         collisions.push(new Collision(i));
     }
-    for (var i = 0; i < 4; ++i) {
-        collisions.push(new Collision(NUM_ATOMS+i));
+
+    initTime = (new Date()).getTime();
+    for (var i = 0; i < NUM_ATOMS; ++i) {
+        calc_collision(i);
+        if (collisions[i].time < next_collision.time) {
+            next_collision.copy(collisions[i]);
+        }
     }
 }
 
@@ -186,12 +203,17 @@ function update_next_collision() {
     }
 }
 
+function generate_color(vel) {
+    var speed = vel.len();
+    var block = ~~Math.floor(speed/max_speed * COLOR_SET.length);
+    return randomColor({hue: COLOR_SET[block], luminosity: 'dark'});
+}
+
 function update_atom() {
     if (++cnt_collision % COLOR_CHANGE_MOD == 0) {
         color_set_id = (color_set_id + 1) % COLOR_SET.length;
     }
     var next_time = next_collision.time;
-    var color = randomColor({hue: COLOR_SET[color_set_id], luminosity: 'dark'});
     var a = atoms[next_collision.id1];
     switch (next_collision.id2) {
         case NUM_ATOMS:
@@ -222,10 +244,10 @@ function update_atom() {
             b.vel = v2;
             a.pos = a.vel.mul(-next_time).add(a.pos);
             b.pos = b.vel.mul(-next_time).add(b.pos);
-            b.color = color;
+            b.color = generate_color(b.vel);
     }
 
-    a.color = color;
+    a.color = generate_color(a.vel);
     base_time = next_time;
 }
 
@@ -254,12 +276,15 @@ function calc() {
     setTimeout(calc, 15);
 }
 
-init();
-for (var i = 0; i < NUM_ATOMS; ++i) {
-    calc_collision(i);
-    if (collisions[i].time < next_collision.time) {
-        next_collision.copy(collisions[i]);
-    }
+function update_max_speed() {
+    max_speed = 0;
+    atoms.forEach(function (atom) {
+        max_speed = Math.max(max_speed, atom.vel.len());
+    });
+    setTimeout(update_max_speed, 1000);
 }
+
+init();
 calc();
+update_max_speed();
 draw();
