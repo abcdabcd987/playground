@@ -33,35 +33,6 @@ function dist(r1, r2) {
     return r1.del(r2).len();
 }
 
-function solver(a, b) {
-    // a[0][0] x + a[0][1] y == b[0]
-    // a[1][0] x + a[1][1] y == b[1]
-    var d = a[0][1] * a[1][0] - a[0][0] * a[1][1];
-    if (Math.abs(d) < EPS) return null;
-    var x = b[1] * a[0][1] - b[0] * a[1][1];
-    var y = -b[1] * a[0][0] + b[0] * a[1][0];
-    return {x: x/d, y: y/d};
-}
-
-function intersection_point(r1, v1, r2, v2) {
-    // (x1, y1) + λ (Vx1, Vy1) == (x2, y2) + μ (Vx2, Vy2)
-    // Vx1 λ - Vx2 μ == x2 - x1
-    // Vy1 λ - Vy2 μ == y2 - y1
-    var a11 = v1.x;
-    var a12 = -v2.x;
-    var a21 = v1.y;
-    var a22 = -v2.y;
-    var b1 = r2.x - r1.x;
-    var b2 = r2.y - r1.y;
-
-    var ans = solver([[a11, a12], [a21, a22]], [b1, b2]);
-    if (ans === null) return null;
-    var lambda = ans.x;
-    var mu = ans.y;
-    if (lambda < -EPS || mu < -EPS) return null;
-    return v1.mul(lambda).add(r1);
-}
-
 //--- Atom
 function Atom(pos, vel) {
     this.pos = pos;
@@ -87,14 +58,14 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 //--- constants
-var NUM_ATOMS = 32;
-var AVERAGE_VEL = 0.2;
 var EPS = 1e-8;
 var WIDTH = canvas.width;
 var HEIGHT = canvas.height;
-var RADIUS = 10;randomColor({hue: 'random'});
+var NUM_ATOMS = ~~(WIDTH * HEIGHT * 0.00117);
+var AVERAGE_VEL = 0.186;
+var RADIUS = ~~(Math.sqrt(0.06*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
 var COLOR_SET = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'monochrome'];
-var COLOR_CHANGE_MOD = NUM_ATOMS*4;
+var COLOR_CHANGE_MOD = ~~(NUM_ATOMS*NUM_ATOMS*0.024);
 
 //--- variables
 var base_time = 0;
@@ -103,74 +74,114 @@ var color_set_id = 0;
 
 //--- init atoms
 var atoms = [];
-for (var i = 0; i < NUM_ATOMS; ++i) {
-    var x = RADIUS + Math.random() * (WIDTH - 2*RADIUS);
-    var y = RADIUS + Math.random() * (HEIGHT - 2*RADIUS);
-    var vel = AVERAGE_VEL + (Math.random()-0.5)/10;
-    var theta = Math.random() * Math.PI * 2;
-    var vx = vel * Math.cos(theta);
-    var vy = vel * Math.sin(theta);
-    atoms.push(new Atom(V(x, y), V(vx, vy)));
+function init() {
+    for (var i = 0; i < NUM_ATOMS; ++i) {
+        var x = RADIUS + Math.random() * (WIDTH - 2*RADIUS);
+        var y = RADIUS + Math.random() * (HEIGHT - 2*RADIUS);
+        var vel = AVERAGE_VEL + (Math.random()-0.5)/10;
+        var theta = Math.random() * Math.PI * 2;
+        var vx = vel * Math.cos(theta);
+        var vy = vel * Math.sin(theta);
+        atoms.push(new Atom(V(x, y), V(vx, vy)));
+        collisions.push(new Collision(i));
+    }
+    for (var i = 0; i < 4; ++i) {
+        collisions.push(new Collision(NUM_ATOMS+i));
+    }
 }
-//atoms.push(new Atom(V(0,0), V(0.1, 0.1)));
-//atoms.push(new Atom(V(100,0), V(-0.1, 0.1)));
 
 //--- collision
-var next_collision = {
-    time: Infinity,
-    id1: null,
-    id2: null,
-    update: function(newtime, id1, id2) {
-        if (newtime < this.time) {
-            this.time = newtime;
-            this.id1 = id1;
-            this.id2 = id2;
+function Collision(id) {
+    this.id1 = id;
+    this.id2 = null;
+    this.time = Infinity;
+}
+
+Collision.prototype.update = function(newtime, id2) {
+    if (newtime < this.time) {
+        this.time = newtime;
+        this.id2 = id2;
+    }
+}
+
+Collision.prototype.copy = function(rhs) {
+    this.id1 = rhs.id1;
+    this.id2 = rhs.id2;
+    this.time = rhs.time;
+}
+
+var collisions = [];
+var next_collision = new Collision();
+
+function calc_collision(i) {
+    var a = atoms[i];
+    var apos = a.get_pos(base_time);
+    var collision = collisions[i];
+
+    // atom collision
+    for (var j = 0; j < atoms.length; ++j) {
+        if (j == i) continue;
+        var b = atoms[j];
+        var bpos = b.get_pos(base_time);
+
+        var p = apos.x - bpos.x;
+        var n = apos.y - bpos.y;
+        var q = a.vel.x - b.vel.x;
+        var m = a.vel.y - b.vel.y;
+        var A = q*q + m*m;
+        var B = 2*(p*q + n*m);
+        var C = p*p + n*n - 4*RADIUS*RADIUS;
+        var D = B*B - 4*A*C;
+        if (D < EPS) continue;
+        var t = (-B - Math.sqrt(D)) / (2 * A) + base_time;
+        if (t > base_time) {
+            collisions[j].update(t, i);
+            collision.update(t, j)
         }
     }
-};
 
-function calc_collision() {
+    // wall collision
+    if (a.vel.x > 0) {
+        var t_wall = (WIDTH - RADIUS - apos.x) / a.vel.x + base_time;
+        collisions[NUM_ATOMS].update(t_wall, i);
+        collision.update(t_wall, NUM_ATOMS);
+    }
+    if (a.vel.y < 0) {
+        var t_wall = (apos.y - RADIUS) / (-a.vel.y) + base_time;
+        collisions[NUM_ATOMS+1].update(t_wall, i);
+        collision.update(t_wall, NUM_ATOMS+1);
+    }
+    if (a.vel.x < 0) {
+        var t_wall = (apos.x - RADIUS) / (-a.vel.x) + base_time;
+        collisions[NUM_ATOMS+2].update(t_wall, i);
+        collision.update(t_wall, NUM_ATOMS+2);
+    }
+    if (a.vel.y > 0) {
+        var t_wall = (HEIGHT - RADIUS - apos.y) / a.vel.y + base_time;
+        collisions[NUM_ATOMS+3].update(t_wall, i);
+        collision.update(t_wall, NUM_ATOMS+3);
+    }
+}
+
+function update_next_collision() {
+    var update_list = [];
+    for (var i = 0; i < NUM_ATOMS+4; ++i) {
+        var c = collisions[i];
+        if (c.id2 == next_collision.id1 || c.id2 == next_collision.id2) {
+            update_list.push(i);
+            c.time = Infinity;
+        }
+    }
+    for (var i = 0; i < update_list.length; ++i) {
+        var id = update_list[i];
+        if (id < NUM_ATOMS) {
+            calc_collision(id);
+        }
+    }
     next_collision.time = Infinity;
-    for (var i = 0; i < atoms.length; ++i) {
-        var a = atoms[i];
-        var apos = a.get_pos(base_time);
-
-        // atom collision
-        for (var j = i+1; j < atoms.length; ++j) {
-            var b = atoms[j];
-            var bpos = b.get_pos(base_time);
-
-            var p = apos.x - bpos.x;
-            var n = apos.y - bpos.y;
-            var q = a.vel.x - b.vel.x;
-            var m = a.vel.y - b.vel.y;
-            var A = q*q + m*m;
-            var B = 2*(p*q + n*m);
-            var C = p*p + n*n - 4*RADIUS*RADIUS;
-            var D = B*B - 4*A*C;
-            if (D < EPS) continue;
-            var t = (-B - Math.sqrt(D)) / (2 * A) + base_time;
-            if (t > base_time) {
-                next_collision.update(t, i, j);
-            }
-        }
-
-        // wall collision
-        if (a.vel.x > 0) {
-            var t_wall = (WIDTH - RADIUS - apos.x) / a.vel.x + base_time;
-            next_collision.update(t_wall, i, -1);
-        }
-        if (a.vel.y < 0) {
-            var t_wall = (apos.y - RADIUS) / (-a.vel.y) + base_time;
-            next_collision.update(t_wall, i, -2);
-        }
-        if (a.vel.x < 0) {
-            var t_wall = (apos.x - RADIUS) / (-a.vel.x) + base_time;
-            next_collision.update(t_wall, i, -3)
-        }
-        if (a.vel.y > 0) {
-            var t_wall = (HEIGHT - RADIUS - apos.y) / a.vel.y + base_time;
-            next_collision.update(t_wall, i, -4);
+    for (var i = 0; i < NUM_ATOMS; ++i) {
+        if (collisions[i].time < next_collision.time) {
+            next_collision.copy(collisions[i]);
         }
     }
 }
@@ -183,15 +194,15 @@ function update_atom() {
     var color = randomColor({hue: COLOR_SET[color_set_id], luminosity: 'dark'});
     var a = atoms[next_collision.id1];
     switch (next_collision.id2) {
-        case -1:
-        case -3:
+        case NUM_ATOMS:
+        case NUM_ATOMS+2:
             a.pos = a.get_pos(next_time);
             a.vel.x *= -1;
             a.pos = a.vel.mul(-next_time).add(a.pos);
             break;
 
-        case -2:
-        case -4:
+        case NUM_ATOMS+1:
+        case NUM_ATOMS+3:
             a.pos = a.get_pos(next_time);
             a.vel.y *= -1;
             a.pos = a.vel.mul(-next_time).add(a.pos);
@@ -231,12 +242,24 @@ function draw() {
         ctx.fill();
         ctx.closePath();
     });
-    while (time > next_collision.time) {
-        update_atom();
-        calc_collision();
-    }
-    setTimeout(draw, 25);
+    setTimeout(draw, 16);
 }
 
-calc_collision();
+function calc() {
+    var time = now();
+    while (time > next_collision.time) {
+        update_atom();
+        update_next_collision();
+    }
+    setTimeout(calc, 15);
+}
+
+init();
+for (var i = 0; i < NUM_ATOMS; ++i) {
+    calc_collision(i);
+    if (collisions[i].time < next_collision.time) {
+        next_collision.copy(collisions[i]);
+    }
+}
+calc();
 draw();
