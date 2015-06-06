@@ -61,11 +61,12 @@ canvas.height = window.innerHeight;
 var EPS = 1e-8;
 var WIDTH = canvas.width;
 var HEIGHT = canvas.height;
-var NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00117), 700);
+var NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00070), 700);
 var AVERAGE_VEL = 0.186;
 var RADIUS = ~~(Math.sqrt(0.06*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
 var COLOR_SET = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'monochrome'];
 var COLOR_CHANGE_MOD = ~~(NUM_ATOMS*NUM_ATOMS*0.024);
+var VEL_CHART_CNT = 64;
 
 //--- variables
 var base_time = 0;
@@ -276,15 +277,60 @@ function calc() {
     setTimeout(calc, 15);
 }
 
-function update_max_speed() {
+function update_speed() {
     max_speed = 0;
+    var cnt = [];
+    for (var i = 0; i < VEL_CHART_CNT; ++i) cnt.push(0);
     atoms.forEach(function (atom) {
         max_speed = Math.max(max_speed, atom.vel.len());
     });
-    setTimeout(update_max_speed, 1000);
+    atoms.forEach(function (atom) {
+        var speed = atom.vel.len();
+        if (speed != max_speed) {
+            var block = ~~Math.floor(speed / max_speed * VEL_CHART_CNT);
+            ++cnt[block];
+        }
+    });
+    for (var i = 0; i < cnt.length; ++i) cnt[i] /= atoms.length;
+    cnt.unshift('speed');
+    var chart = c3.generate({
+        bindto: '#chart',
+        data: {
+            columns: [
+                cnt
+            ],
+            types: {
+                speed: 'area-step'
+            }
+        },
+        legend: {
+            show: false
+        },
+        size: {
+            width: 200,
+            height: 120
+        },
+        transition: {
+            duration: 0
+        },
+        axis: {
+            y: {
+                max: 0.06,
+                min: 0,
+                tick: {values: []},
+                label: "% atoms",
+                padding: {top: 0, bottom: 0, left:0, right:0}
+            },
+            x: {
+                tick: {values: []},
+                label: "speed"
+            },
+        }
+    })
+    setTimeout(update_speed, 300);
 }
 
 init();
 calc();
-update_max_speed();
+update_speed();
 draw();
