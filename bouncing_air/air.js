@@ -61,18 +61,19 @@ canvas.height = window.innerHeight;
 var EPS = 1e-8;
 var WIDTH = canvas.width;
 var HEIGHT = canvas.height;
-var NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00070), 700);
-var AVERAGE_VEL = 0.186;
-var RADIUS = ~~(Math.sqrt(0.06*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
+var NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00047), 700);
+var AVERAGE_VEL = 0.137;
+var RADIUS = ~~(Math.sqrt(0.05*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
 var COLOR_SET = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'monochrome'];
 var COLOR_CHANGE_MOD = ~~(NUM_ATOMS*NUM_ATOMS*0.024);
-var VEL_CHART_CNT = 64;
+var VEL_CHART_CNT = 10;
 
 //--- variables
 var base_time = 0;
 var cnt_collision = 0;
 var color_set_id = 0;
 var max_speed = 0;
+var vel_cnt = [];
 
 //--- init atoms
 var atoms = [];
@@ -99,6 +100,8 @@ function init() {
         collisions.push(new Collision(i));
     }
 
+    for (var i = 0; i < VEL_CHART_CNT; ++i) vel_cnt.push(0);
+
     initTime = (new Date()).getTime();
     for (var i = 0; i < NUM_ATOMS; ++i) {
         calc_collision(i);
@@ -106,6 +109,16 @@ function init() {
             next_collision.copy(collisions[i]);
         }
     }
+}
+
+function calc_vel_cnt() {
+    for (var i = 0; i < vel_cnt.length; ++i) vel_cnt[i] = 0;
+    atoms.forEach(function (atom) {
+        var block = get_speed_block(atom);
+        if (block < vel_cnt.length) {
+            ++vel_cnt[block];
+        }
+    });
 }
 
 //--- collision
@@ -216,6 +229,9 @@ function update_atom() {
     }
     var next_time = next_collision.time;
     var a = atoms[next_collision.id1];
+    var block = get_speed_block(a);
+    if (block < vel_cnt.length)
+        --vel_cnt[get_speed_block(a)];
     switch (next_collision.id2) {
         case NUM_ATOMS:
         case NUM_ATOMS+2:
@@ -233,6 +249,9 @@ function update_atom() {
 
         default:
             var b = atoms[next_collision.id2];
+            block = get_speed_block(b);
+            if (block < vel_cnt.length)
+                --vel_cnt[block];
             var apos = a.get_pos(base_time);
             var bpos = b.get_pos(base_time);
             var d = dist(apos, bpos);
@@ -246,8 +265,15 @@ function update_atom() {
             a.pos = a.vel.mul(-next_time).add(a.pos);
             b.pos = b.vel.mul(-next_time).add(b.pos);
             b.color = generate_color(b.vel);
+
+            block = get_speed_block(b);
+            if (block < vel_cnt.length)
+                ++vel_cnt[get_speed_block(b)];
     }
 
+    block = get_speed_block(a);
+    if (block < vel_cnt.length)
+        ++vel_cnt[get_speed_block(a)];
     a.color = generate_color(a.vel);
     base_time = next_time;
 }
@@ -277,22 +303,24 @@ function calc() {
     setTimeout(calc, 15);
 }
 
+function get_speed_block(atom) {
+    var speed = atom.vel.len();
+    return ~~Math.floor(speed / max_speed * VEL_CHART_CNT);
+}
+
 function update_speed() {
     max_speed = 0;
-    var cnt = [];
-    for (var i = 0; i < VEL_CHART_CNT; ++i) cnt.push(0);
     atoms.forEach(function (atom) {
         max_speed = Math.max(max_speed, atom.vel.len());
     });
-    atoms.forEach(function (atom) {
-        var speed = atom.vel.len();
-        if (speed != max_speed) {
-            var block = ~~Math.floor(speed / max_speed * VEL_CHART_CNT);
-            ++cnt[block];
-        }
-    });
-    for (var i = 0; i < cnt.length; ++i) cnt[i] /= atoms.length;
-    cnt.unshift('speed');
+    calc_vel_cnt();
+    setTimeout(update_speed, 3000);
+}
+
+function update_chart() {
+    var cnt = ['speed'];
+    for (var i = 0; i < vel_cnt.length; ++i)
+        cnt.push(vel_cnt[i] / NUM_ATOMS);
     var chart = c3.generate({
         bindto: '#chart',
         data: {
@@ -315,7 +343,7 @@ function update_speed() {
         },
         axis: {
             y: {
-                max: 0.06,
+                max: 0.3,
                 min: 0,
                 tick: {values: []},
                 label: "% atoms",
@@ -327,10 +355,11 @@ function update_speed() {
             },
         }
     })
-    setTimeout(update_speed, 300);
+    setTimeout(update_chart, 200);
 }
 
 init();
 calc();
 update_speed();
+update_chart();
 draw();
