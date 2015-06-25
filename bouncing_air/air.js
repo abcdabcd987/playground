@@ -37,7 +37,17 @@ function dist(r1, r2) {
 function Atom(pos, vel) {
     this.pos = pos;
     this.vel = vel;
-    this.color = '#000000';
+    this.entity = new PIXI.Graphics();
+    this.set_color(0x000000);
+}
+
+Atom.prototype.set_color = function (color) {
+    //this.color = parseInt(color.substr(1), 16);
+    this.color = color;
+    this.entity.clear();
+    this.entity.beginFill(this.color, 1);
+    this.entity.drawCircle(0, 0, RADIUS);
+    this.entity.endFill();
 }
 
 Atom.prototype.get_pos = function (t) {
@@ -51,26 +61,25 @@ function now() {
     return (new Date()).getTime() - initTime;
 }
 
-var canvas = document.getElementById('canvas');
-var ctx = canvas.getContext('2d');
-
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+var renderer = new PIXI.autoDetectRenderer(window.innerWidth, window.innerHeight);
+var stage = new PIXI.Container();
+renderer.backgroundColor = 0xFFFFFF;
+document.getElementById('canvas').appendChild(renderer.view);
 
 //--- constants
 var EPS = 1e-8;
-var WIDTH = canvas.width;
-var HEIGHT = canvas.height;
+var WIDTH = renderer.width;
+var HEIGHT = renderer.height;
 var NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00047), 700);
 var AVERAGE_VEL = 0.137;
 var RADIUS = ~~(Math.sqrt(0.05*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
-var COLOR_SET = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'monochrome'];
+//var COLOR_SET = ['yellow', 'orange', 'green', 'blue', 'purple', 'red', 'pink'];
+var COLOR_SET = [0x94DB6C, 0xFFDC60, 0xDE5424, 0x7F2350, 0x110747];
 var COLOR_CHANGE_MOD = ~~(NUM_ATOMS*NUM_ATOMS*0.024);
 var VEL_CHART_CNT = 10;
 
 //--- variables
 var base_time = 0;
-var cnt_collision = 0;
 var color_set_id = 0;
 var max_speed = 0;
 var vel_cnt = [];
@@ -94,7 +103,9 @@ function init() {
         var theta = Math.random() * 2*Math.PI;
         var vx = vel * Math.cos(theta);
         var vy = vel * Math.sin(theta);
-        atoms.push(new Atom(pos, V(vx, vy)));
+        var atom = new Atom(pos, V(vx, vy));
+        atoms.push(atom);
+        stage.addChild(atom.entity);
     }
     for (var i = 0; i < NUM_ATOMS+4; ++i) {
         collisions.push(new Collision(i));
@@ -220,13 +231,12 @@ function update_next_collision() {
 function generate_color(vel) {
     var speed = vel.len();
     var block = ~~Math.floor(speed/max_speed * COLOR_SET.length);
-    return randomColor({hue: COLOR_SET[block], luminosity: 'dark'});
+    if (block == COLOR_SET.length) --block;
+    //return randomColor({hue: COLOR_SET[block], luminosity: 'light'});
+    return COLOR_SET[block];
 }
 
 function update_atom() {
-    if (++cnt_collision % COLOR_CHANGE_MOD == 0) {
-        color_set_id = (color_set_id + 1) % COLOR_SET.length;
-    }
     var next_time = next_collision.time;
     var a = atoms[next_collision.id1];
     var block = get_speed_block(a);
@@ -264,7 +274,7 @@ function update_atom() {
             b.vel = v2;
             a.pos = a.vel.mul(-next_time).add(a.pos);
             b.pos = b.vel.mul(-next_time).add(b.pos);
-            b.color = generate_color(b.vel);
+            b.set_color(generate_color(b.vel));
 
             block = get_speed_block(b);
             if (block < vel_cnt.length)
@@ -274,24 +284,21 @@ function update_atom() {
     block = get_speed_block(a);
     if (block < vel_cnt.length)
         ++vel_cnt[get_speed_block(a)];
-    a.color = generate_color(a.vel);
+    a.set_color(generate_color(a.vel));
     base_time = next_time;
 }
 
 //--- draw
 function draw() {
-    ctx.clearRect(0, 0, WIDTH, HEIGHT);
-
     var time = now();
     atoms.forEach(function(atom) {
-        ctx.beginPath();
         var pos = atom.get_pos(time);
-        ctx.arc(pos.x, pos.y, RADIUS, 0, 2*Math.PI);
-        ctx.fillStyle = atom.color;
-        ctx.fill();
-        ctx.closePath();
+        atom.entity.x = pos.x;
+        atom.entity.y = pos.y;
     });
-    setTimeout(draw, 16);
+
+    requestAnimationFrame(draw);
+    renderer.render(stage);
 }
 
 function calc() {
