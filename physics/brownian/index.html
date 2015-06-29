@@ -9,6 +9,8 @@ html, body, #canvas {
     margin: 0;
     padding: 0;
     overflow: hidden;
+    font-family: monospace;
+    font-size: 12px;
 }
 
 #chart {
@@ -29,12 +31,11 @@ html, body, #canvas {
 }
 #stat {
     position: absolute !important;
-    top: 120px;
+    top: 240px;
     right: 0;
     z-index: 10;
     background-color: #fff;
     opacity: 0.9;
-    display: none;
 }
 </style>
 </head>
@@ -43,7 +44,7 @@ html, body, #canvas {
 <div id="path"></div>
 <div id="chart"></div>
 <div id="chart2"></div>
-<div id="stat"><span id="num"></span></div>
+<div id="stat"><p>Big Ek: <span id="bigek"></span></p><p>Mean Ek: <span id="meanek"></span></p></div>
 <script src="../../lib/d3/d3.min.js" charset="utf-8"></script>
 <script src="../../lib/c3/c3.min.js"></script>
 <script src="../../lib/pixi.min.js"></script>

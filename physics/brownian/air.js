@@ -34,10 +34,12 @@ function dist(r1, r2) {
 }
 
 //--- Atom
-function Atom(pos, vel) {
+function Atom(pos, vel, radius) {
     this.pos = pos;
     this.vel = vel;
     this.initpos = pos;
+    this.radius = radius;
+    this.mass = 1;
     this.entity = new PIXI.Graphics();
     this.set_color(0x000000);
 }
@@ -47,7 +49,7 @@ Atom.prototype.set_color = function (color) {
     this.color = color;
     this.entity.clear();
     this.entity.beginFill(this.color, 1);
-    this.entity.drawCircle(0, 0, RADIUS);
+    this.entity.drawCircle(0, 0, this.radius);
     this.entity.endFill();
 }
 
@@ -112,11 +114,13 @@ function init() {
         var theta = Math.random() * 2*Math.PI;
         var vx = vel * Math.cos(theta);
         var vy = vel * Math.sin(theta);
-        var atom = new Atom(pos, V(vx, vy));
+        var atom = new Atom(pos, V(vx, vy), RADIUS);
         atoms.push(atom);
         stage.addChild(atom.entity);
     }
 
+    atoms[0].radius = RADIUS*3;
+    atoms[0].mass = 27;
     atoms[0].set_color(0xFF0000);
     path_last_point = atoms[0].pos;
 
@@ -185,7 +189,7 @@ function calc_collision(i) {
         var m = a.vel.y - b.vel.y;
         var A = q*q + m*m;
         var B = 2*(p*q + n*m);
-        var C = p*p + n*n - 4*RADIUS*RADIUS;
+        var C = p*p + n*n - 4*a.radius*b.radius;
         var D = B*B - 4*A*C;
         if (D < EPS) continue;
         var t = (-B - Math.sqrt(D)) / (2 * A) + base_time;
@@ -197,22 +201,22 @@ function calc_collision(i) {
 
     // wall collision
     if (a.vel.x > 0) {
-        var t_wall = (WIDTH - RADIUS - apos.x) / a.vel.x + base_time;
+        var t_wall = (WIDTH - a.radius - apos.x) / a.vel.x + base_time;
         collisions[NUM_ATOMS].update(t_wall, i);
         collision.update(t_wall, NUM_ATOMS);
     }
     if (a.vel.y < 0) {
-        var t_wall = (apos.y - RADIUS) / (-a.vel.y) + base_time;
+        var t_wall = (apos.y - a.radius) / (-a.vel.y) + base_time;
         collisions[NUM_ATOMS+1].update(t_wall, i);
         collision.update(t_wall, NUM_ATOMS+1);
     }
     if (a.vel.x < 0) {
-        var t_wall = (apos.x - RADIUS) / (-a.vel.x) + base_time;
+        var t_wall = (apos.x - a.radius) / (-a.vel.x) + base_time;
         collisions[NUM_ATOMS+2].update(t_wall, i);
         collision.update(t_wall, NUM_ATOMS+2);
     }
     if (a.vel.y > 0) {
-        var t_wall = (HEIGHT - RADIUS - apos.y) / a.vel.y + base_time;
+        var t_wall = (HEIGHT - a.radius - apos.y) / a.vel.y + base_time;
         collisions[NUM_ATOMS+3].update(t_wall, i);
         collision.update(t_wall, NUM_ATOMS+3);
     }
@@ -279,8 +283,8 @@ function update_atom() {
             var bpos = b.get_pos(base_time);
             var d = dist(apos, bpos);
             var k = a.vel.del(b.vel).dot(apos.del(bpos)) / (d*d);
-            var v1 = a.vel.del(apos.del(bpos).mul(k));
-            var v2 = b.vel.del(bpos.del(apos).mul(k));
+            var v1 = a.vel.del(apos.del(bpos).mul(k*2*b.mass/(a.mass+b.mass)));
+            var v2 = b.vel.del(bpos.del(apos).mul(k*2*a.mass/(a.mass+b.mass)));
             a.pos = a.get_pos(next_time);
             b.pos = b.get_pos(next_time);
             a.vel = v1;
@@ -382,16 +386,20 @@ function update_chart() {
         }
     })
 
-    var mean = 0;
+    var meanr2 = 0;
+    var meanEk = 0;
     var time = now();
     atoms.forEach(function (atom) {
         var pos = atom.get_pos(time);
         var d = pos.del(atom.initpos);
-        mean += d.x*d.x + d.y*d.y;
+        meanr2 += d.x*d.x + d.y*d.y;
+        var v = atom.vel;
+        meanEk += 1/2 * atom.mass * (v.x*v.x + v.y*v.y);
     });
-    mean /= atoms.length;
-    document.getElementById('num').innerHTML = mean;
-    path_lengths.push(mean);
+    var bigEk = 1/2 * atoms[0].mass * Math.pow(atoms[0].vel.len(), 2);
+    meanEk = (meanEk-bigEk) / (atoms.length-1);
+    meanr2 /= atoms.length;
+    path_lengths.push(meanr2);
 
     var chart2 = c3.generate({
         bindto: '#chart2',
@@ -427,6 +435,11 @@ function update_chart() {
             },
         }
     })
+
+    bigEk *= 1000;
+    meanEk *= 1000;
+    document.getElementById('bigek').innerHTML = bigEk.toFixed(3);
+    document.getElementById('meanek').innerHTML = meanEk.toFixed(3);
 
     setTimeout(update_chart, 200);
 }
