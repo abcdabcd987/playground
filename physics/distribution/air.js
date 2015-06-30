@@ -62,24 +62,28 @@ function now() {
     return (new Date()).getTime() - initTime;
 }
 
-var renderer = new PIXI.autoDetectRenderer(window.innerWidth, window.innerHeight);
-var stage = new PIXI.Container();
-renderer.backgroundColor = 0xFFFFFF;
-document.getElementById('canvas').appendChild(renderer.view);
-
 //--- constants
-var EPS = 1e-8;
-var WIDTH = renderer.width;
-var HEIGHT = renderer.height;
-//var NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00047), 700);
-var NUM_ATOMS = 1000;
-var AVERAGE_VEL = 0.017;
-//var RADIUS = ~~(Math.sqrt(0.05*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
-var RADIUS = 3;
-//var COLOR_SET = ['yellow', 'orange', 'green', 'blue', 'purple', 'red', 'pink'];
-var COLOR_SET = [0x94DB6C, 0xFFDC60, 0xDE5424, 0x7F2350, 0x110747];
-var COLOR_CHANGE_MOD = ~~(NUM_ATOMS*NUM_ATOMS*0.024);
-var VEL_CHART_CNT = 50;
+var EPS = undefined;
+var WIDTH = undefined
+var HEIGHT = undefined
+var NUM_ATOMS = undefined
+var AVERAGE_VEL = undefined
+var RADIUS = undefined
+var COLOR_SET = undefined
+var COLOR_CHANGE_MOD = undefined
+var VEL_CHART_CNT = undefined
+function init_constant() {
+    EPS = 1e-8;
+    WIDTH = window.innerWidth;
+    HEIGHT = window.innerHeight;
+    NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00147), 1000);
+    AVERAGE_VEL = 0.017;
+    RADIUS = ~~(Math.sqrt(0.05*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
+    COLOR_SET = [0x94DB6C, 0xFFDC60, 0xDE5424, 0x7F2350, 0x110747];
+    COLOR_CHANGE_MOD = ~~(NUM_ATOMS*NUM_ATOMS*0.024);
+    VEL_CHART_CNT = 50;
+}
+init_constant();
 
 //--- variables
 var base_time = 0;
@@ -90,9 +94,16 @@ var next_collision = new Collision();
 var atoms = [];
 var running = false;
 
+var renderer = new PIXI.autoDetectRenderer(WIDTH, HEIGHT);
+var stage = new PIXI.Container();
+renderer.backgroundColor = 0xFFFFFF;
+document.getElementById('canvas').appendChild(renderer.view);
+
 //--- init atoms
 function reset() {
+    init_constant();
     running = false;
+    base_time = 0;
     max_speed = 0;
     vel_cnt = [];
     atoms = [];
@@ -139,6 +150,27 @@ function init_random() {
     run();
 }
 
+function init_line() {
+    reset();
+    AVERAGE_VEL = 0.16;
+    HEIGHT = Math.min(HEIGHT, 200);
+    NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00107), 1000);
+    atoms.push(new Atom(V(WIDTH/3, HEIGHT/2), V(0, 0)));
+
+    var x = WIDTH*2 / 3;
+    var y = RADIUS*2;
+    for (var i = 1; i < NUM_ATOMS; ++i) {
+        atoms.push(new Atom(V(x, y), V(-AVERAGE_VEL, 0)));
+        if (y+RADIUS*3 >= HEIGHT) {
+            x += RADIUS*3;
+            y = RADIUS*2;
+        } else {
+            y += RADIUS*3;
+        }
+    }
+    run();
+}
+
 function calc_vel_cnt() {
     for (var i = 0; i < vel_cnt.length; ++i) vel_cnt[i] = 0;
     atoms.forEach(function (atom) {
@@ -176,7 +208,6 @@ function calc_collision(i) {
 
     // atom collision
     for (var j = 0; j < atoms.length; ++j) {
-        ++collision_cnt.calc_j;
         if (j == i) continue;
         var b = atoms[j];
         var bpos = b.get_pos(base_time);
@@ -233,7 +264,6 @@ function update_next_collision() {
     for (var i = 0; i < update_list.length; ++i) {
         var id = update_list[i];
         if (id < NUM_ATOMS) {
-            ++collision_cnt.update_times;
             calc_collision(id);
         }
     }
@@ -255,7 +285,6 @@ function generate_color(vel) {
 
 function update_atom() {
     if (!running) return;
-    ++collision_cnt.collision;
     var next_time = next_collision.time;
     var a = atoms[next_collision.id1];
     var block = get_speed_block(a);
@@ -309,17 +338,18 @@ function update_atom() {
 
 //--- draw
 function draw() {
-    var time = now();
-    while (time > next_collision.time) {
-        update_atom();
-        update_next_collision();
+    if (running) {
+        var time = now();
+        while (time > next_collision.time) {
+            update_atom();
+            update_next_collision();
+        }
+        atoms.forEach(function(atom) {
+            var pos = atom.get_pos(time);
+            atom.entity.x = pos.x;
+            atom.entity.y = pos.y;
+        });
     }
-    atoms.forEach(function(atom) {
-        var pos = atom.get_pos(time);
-        atom.entity.x = pos.x;
-        atom.entity.y = pos.y;
-    });
-
     requestAnimationFrame(draw);
     renderer.render(stage);
 }
@@ -379,14 +409,6 @@ function update_chart() {
     setTimeout(update_chart, 200);
 }
 
-var collision_cnt = { collision: 0, update_times: 0, calc_j: 0};
-function stat_collision() {
-    console.log('In 1 second: %d collisions, %d atoms updated, %d calculations', collision_cnt.collision, collision_cnt.update_times, collision_cnt.calc_j);
-    collision_cnt = { collision: 0, update_times: 0, calc_j: 0};
-    setTimeout(stat_collision, 1000);
-}
-
 update_speed();
 update_chart();
-stat_collision();
 draw();
