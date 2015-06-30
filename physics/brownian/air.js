@@ -427,7 +427,7 @@ function update_chart() {
         axis: {
             y: {
                 label: "<R^2>",
-                padding: {top: 0, bottom: 0, left:0, right:0}
+                padding: {top: 0, bottom: 0, left:0, right:0},
                 tick: {count:4}
             },
             x: {
