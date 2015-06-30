@@ -1,3 +1,17 @@
+//--- constants
+var EPS = 1e-8;
+var WIDTH = window.innerWidth;
+var HEIGHT = window.innerHeight;
+//var NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00047), 700);
+var NUM_ATOMS = 1000;
+var AVERAGE_VEL = 0.017;
+//var RADIUS = ~~(Math.sqrt(0.05*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
+var RADIUS = 3;
+//var COLOR_SET = ['yellow', 'orange', 'green', 'blue', 'purple', 'red', 'pink'];
+var COLOR_SET = [0x94DB6C, 0xFFDC60, 0xDE5424, 0x7F2350, 0x110747];
+var COLOR_CHANGE_MOD = ~~(NUM_ATOMS*NUM_ATOMS*0.024);
+var VEL_CHART_CNT = 50;
+
 //--- Vector
 function Vector(x, y) {
     this.x = x;
@@ -33,12 +47,95 @@ function dist(r1, r2) {
     return r1.del(r2).len();
 }
 
+//--- Heap
+function Heap(size) {
+    this.size = size;
+    this._data = [null];
+    this._position = [];
+    for (var i = 0; i < size; ++i) {
+        this._data.push(new HeapNode(i, Infinity));
+        this._position.push(i+1);
+    }
+}
+
+function HeapNode(key, value) {
+    this.key = key;
+    this.value = value;
+}
+
+HeapNode.prototype.swap = function(rhs) {
+    var t = this.key; this.key = rhs.key; rhs.key = t;
+    t = this.value; this.value = rhs.value; rhs.value = t;
+}
+
+Heap.prototype.reset = function() {
+    for (var i = 1; i <= this.size; ++i) {
+        this._data[i].value = Infinity;
+    }
+}
+
+Heap.prototype._swap = function(idx1, idx2) {
+    this._data[idx1].swap(this._data[idx2]);
+    this._position[this._data[idx1].key] = idx1;
+    this._position[this._data[idx2].key] = idx2;
+}
+
+Heap.prototype._up = function(i) {
+    while (i > 1 && this._data[i].value < this._data[i>>1].value) {
+        this._swap(i, i>>1);
+        i >>= 1;
+    }
+}
+
+Heap.prototype._down = function(i) {
+    while ((i<<1) <= this.size) {
+        var k = i;
+        if (this._data[i<<1].value < this._data[k].value) k = i<<1;  
+        if ((i<<1|1) <= this.size && this._data[i<<1|1].value < this._data[k].value) k = i<<1|1;
+        if (k == i) break;
+        this._swap(i, k);
+        i = k;
+    }
+}
+
+Heap.prototype.modify = function(key, value) {
+    var i = this._position[key];
+    var v = this._data[i].value;
+    this._data[i].value = value;
+    if (value < v) this._up(i);
+    if (value > v) this._down(i);
+}
+
+Heap.prototype.top = function() {
+    return this._data[1];
+}
 
 //--- Atom
-function Atom(pos, vel) {
+function Collision() {
+    this.id2 = null;
+    this.time = Infinity;
+    this.queue = new Heap(NUM_ATOMS+4);    
+}
+
+Collision.prototype.reset = function() {
+    this.id2 = null;
+    this.time = Infinity;
+    this.queue.reset();
+}
+
+Collision.prototype.update = function(newtime, id2) {
+    this.queue.modify(id2, newtime);
+    var top = this.queue.top();
+    this.time = top.value;
+    this.id2 = top.key;
+}
+
+function Atom(id, pos, vel) {
+    this.id = id;
     this.pos = pos;
     this.vel = vel;
     this.entity = new PIXI.Graphics();
+    this.collision = new Collision();
     this.set_color(0x000000);
 }
 
@@ -62,33 +159,29 @@ function now() {
     return (new Date()).getTime() - initTime;
 }
 
-var renderer = new PIXI.autoDetectRenderer(window.innerWidth, window.innerHeight);
+var renderer = new PIXI.autoDetectRenderer(WIDTH, HEIGHT);
 var stage = new PIXI.Container();
 renderer.backgroundColor = 0xFFFFFF;
 document.getElementById('canvas').appendChild(renderer.view);
-
-//--- constants
-var EPS = 1e-8;
-var WIDTH = renderer.width;
-var HEIGHT = renderer.height;
-//var NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00047), 700);
-var NUM_ATOMS = 1000;
-var AVERAGE_VEL = 0.017;
-//var RADIUS = ~~(Math.sqrt(0.05*WIDTH*HEIGHT/(NUM_ATOMS*Math.PI)));
-var RADIUS = 3;
-//var COLOR_SET = ['yellow', 'orange', 'green', 'blue', 'purple', 'red', 'pink'];
-var COLOR_SET = [0x94DB6C, 0xFFDC60, 0xDE5424, 0x7F2350, 0x110747];
-var COLOR_CHANGE_MOD = ~~(NUM_ATOMS*NUM_ATOMS*0.024);
-var VEL_CHART_CNT = 50;
 
 //--- variables
 var base_time = 0;
 var max_speed = 0;
 var vel_cnt = [];
-var collisions = [];
-var next_collision = new Collision();
 var atoms = [];
 var running = false;
+var next_collision = {
+    id1: null,
+    id2: null,
+    time: Infinity,
+    update: function (atom) {
+        if (atom.collision.time < next_collision.time) {
+            next_collision.id1 = atom.id;
+            next_collision.id2 = atom.collision.id2;
+            next_collision.time = atom.collision.time;
+        }
+    }
+};
 
 //--- init atoms
 function reset() {
@@ -96,23 +189,19 @@ function reset() {
     max_speed = 0;
     vel_cnt = [];
     atoms = [];
-    collisions = [];
     stage.removeChildren();
-    next_collision = new Collision();;
+    next_collision.time = Infinity;
     initTime = (new Date()).getTime();
 }
 function run() {
     for (var i = 0; i < VEL_CHART_CNT; ++i) vel_cnt.push(0);
-    for (var i = 0; i < NUM_ATOMS+4; ++i) {
-        collisions.push(new Collision(i));
-    }
     for (var i = 0; i < NUM_ATOMS; ++i) {
         stage.addChild(atoms[i].entity);
         calc_collision(i);
-        if (collisions[i].time < next_collision.time) {
-            next_collision.copy(collisions[i]);
-        }
     }
+    atoms.forEach(function (atom) {
+        next_collision.update(atom);
+    });
     running = true;
 }
 function init_random() {
@@ -133,51 +222,20 @@ function init_random() {
         var theta = Math.random() * 2*Math.PI;
         var vx = vel * Math.cos(theta);
         var vy = vel * Math.sin(theta);
-        var atom = new Atom(pos, V(vx, vy));
+        var atom = new Atom(i, pos, V(vx, vy));
         atoms.push(atom);
     }
     run();
 }
 
-function calc_vel_cnt() {
-    for (var i = 0; i < vel_cnt.length; ++i) vel_cnt[i] = 0;
-    atoms.forEach(function (atom) {
-        var block = get_speed_block(atom);
-        if (block < vel_cnt.length) {
-            ++vel_cnt[block];
-        }
-    });
-}
-
 //--- collision
-function Collision(id) {
-    this.id1 = id;
-    this.id2 = null;
-    this.time = Infinity;
-}
 
-Collision.prototype.update = function(newtime, id2) {
-    if (newtime < this.time) {
-        this.time = newtime;
-        this.id2 = id2;
-    }
-}
-
-Collision.prototype.copy = function(rhs) {
-    this.id1 = rhs.id1;
-    this.id2 = rhs.id2;
-    this.time = rhs.time;
-}
-
-function calc_collision(i) {
+function calc_pair_collision(i, j) {
+    if (i == j) return;
+    ++collision_cnt.pair;
     var a = atoms[i];
     var apos = a.get_pos(base_time);
-    var collision = collisions[i];
-
-    // atom collision
-    for (var j = 0; j < atoms.length; ++j) {
-        ++collision_cnt.calc_j;
-        if (j == i) continue;
+    if (j < NUM_ATOMS) {
         var b = atoms[j];
         var bpos = b.get_pos(base_time);
 
@@ -189,60 +247,48 @@ function calc_collision(i) {
         var B = 2*(p*q + n*m);
         var C = p*p + n*n - 4*RADIUS*RADIUS;
         var D = B*B - 4*A*C;
-        if (D < EPS) continue;
+        if (D < EPS) return;
         var t = (-B - Math.sqrt(D)) / (2 * A) + base_time;
         if (t > base_time) {
-            collisions[j].update(t, i);
-            collision.update(t, j)
+            a.collision.update(t, j);
+            b.collision.update(t, i);
         }
-    }
-
-    // wall collision
-    if (a.vel.x > 0) {
+    } else if (j == NUM_ATOMS) {
         var t_wall = (WIDTH - RADIUS - apos.x) / a.vel.x + base_time;
-        collisions[NUM_ATOMS].update(t_wall, i);
-        collision.update(t_wall, NUM_ATOMS);
-    }
-    if (a.vel.y < 0) {
+        if (t_wall > base_time + EPS) a.collision.update(t_wall, NUM_ATOMS);
+    } else if (j == NUM_ATOMS+1) {
         var t_wall = (apos.y - RADIUS) / (-a.vel.y) + base_time;
-        collisions[NUM_ATOMS+1].update(t_wall, i);
-        collision.update(t_wall, NUM_ATOMS+1);
-    }
-    if (a.vel.x < 0) {
+        if (t_wall > base_time + EPS) a.collision.update(t_wall, NUM_ATOMS+1);
+    } else if (j == NUM_ATOMS+2) {
         var t_wall = (apos.x - RADIUS) / (-a.vel.x) + base_time;
-        collisions[NUM_ATOMS+2].update(t_wall, i);
-        collision.update(t_wall, NUM_ATOMS+2);
-    }
-    if (a.vel.y > 0) {
+        if (t_wall > base_time + EPS) a.collision.update(t_wall, NUM_ATOMS+2);
+    } else if (j == NUM_ATOMS+3) {
         var t_wall = (HEIGHT - RADIUS - apos.y) / a.vel.y + base_time;
-        collisions[NUM_ATOMS+3].update(t_wall, i);
-        collision.update(t_wall, NUM_ATOMS+3);
+        if (t_wall > base_time + EPS) a.collision.update(t_wall, NUM_ATOMS+3);
     }
+}
+
+function calc_collision(i) {
+    if (i >= NUM_ATOMS) return;
+    ++collision_cnt.atom;
+    atoms.forEach(function(atom) {
+        atom.collision.update(Infinity, i);
+    })
+    atoms[i].collision.reset();
+    for (var j = 0; j < NUM_ATOMS+4; ++j)
+        calc_pair_collision(i, j);
 }
 
 function update_next_collision() {
     if (!running) return;
-    var update_list = [];
-    for (var i = 0; i < NUM_ATOMS+4; ++i) {
-        var c = collisions[i];
-        if (c.id2 == next_collision.id1 || c.id2 == next_collision.id2) {
-            update_list.push(i);
-            c.time = Infinity;
-        }
-    }
-    for (var i = 0; i < update_list.length; ++i) {
-        var id = update_list[i];
-        if (id < NUM_ATOMS) {
-            ++collision_cnt.update_times;
-            calc_collision(id);
-        }
-    }
+    
+    calc_collision(next_collision.id1);
+    calc_collision(next_collision.id2);
+
     next_collision.time = Infinity;
-    for (var i = 0; i < NUM_ATOMS; ++i) {
-        if (collisions[i].time < next_collision.time) {
-            next_collision.copy(collisions[i]);
-        }
-    }
+    atoms.forEach(function (atom) {
+        next_collision.update(atom);
+    });
 }
 
 function generate_color(vel) {
@@ -334,6 +380,16 @@ function get_speed_block(atom) {
     return ~~Math.floor(speed / max_speed * VEL_CHART_CNT);
 }
 
+function calc_vel_cnt() {
+    for (var i = 0; i < vel_cnt.length; ++i) vel_cnt[i] = 0;
+    atoms.forEach(function (atom) {
+        var block = get_speed_block(atom);
+        if (block < vel_cnt.length) {
+            ++vel_cnt[block];
+        }
+    });
+}
+
 function update_speed() {
     max_speed = 0;
     atoms.forEach(function (atom) {
@@ -350,23 +406,12 @@ function update_chart() {
     var chart = c3.generate({
         bindto: '#chart',
         data: {
-            columns: [
-                cnt
-            ],
-            types: {
-                speed: 'area-step'
-            }
+            columns: [cnt],
+            types: {speed: 'area-step'}
         },
-        legend: {
-            show: false
-        },
-        size: {
-            width: 200,
-            height: 120
-        },
-        transition: {
-            duration: 0
-        },
+        legend: { show: false },
+        size: { width: 200, height: 120 },
+        transition: { duration: 0 },
         axis: {
             y: {
                 max: 0.1,
@@ -384,10 +429,10 @@ function update_chart() {
     setTimeout(update_chart, 200);
 }
 
-var collision_cnt = { collision: 0, update_times: 0, calc_j: 0};
+var collision_cnt = { collision: 0, atom: 0, pair: 0};
 function stat_collision() {
-    console.log('In 1 second: %d collisions, %d atoms updated, %d calculations', collision_cnt.collision, collision_cnt.update_times, collision_cnt.calc_j);
-    collision_cnt = { collision: 0, update_times: 0, calc_j: 0};
+    console.log('In 1 second: %d collisions, %d atoms updated, %d pair calculations', collision_cnt.collision, collision_cnt.atom, collision_cnt.pair);
+    collision_cnt = { collision: 0, atom: 0, pair: 0};
     setTimeout(stat_collision, 1000);
 }
 
