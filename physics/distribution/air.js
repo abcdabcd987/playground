@@ -310,6 +310,10 @@ function update_atom() {
 //--- draw
 function draw() {
     var time = now();
+    while (time > next_collision.time) {
+        update_atom();
+        update_next_collision();
+    }
     atoms.forEach(function(atom) {
         var pos = atom.get_pos(time);
         atom.entity.x = pos.x;
@@ -318,15 +322,6 @@ function draw() {
 
     requestAnimationFrame(draw);
     renderer.render(stage);
-}
-
-function calc() {
-    var time = now();
-    while (time > next_collision.time) {
-        update_atom();
-        update_next_collision();
-    }
-    setTimeout(calc, 15);
 }
 
 function get_speed_block(atom) {
@@ -340,7 +335,7 @@ function update_speed() {
         max_speed = Math.max(max_speed, atom.vel.len());
     });
     calc_vel_cnt();
-    setTimeout(update_speed, 3000);
+    setTimeout(update_speed, 1000);
 }
 
 function update_chart() {
@@ -391,7 +386,6 @@ function stat_collision() {
     setTimeout(stat_collision, 1000);
 }
 
-calc();
 update_speed();
 update_chart();
 stat_collision();

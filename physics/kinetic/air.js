@@ -316,6 +316,10 @@ function AIR(DOM_name, AVERAGE_VEL, callback) {
     //--- draw
     function draw() {
         var time = now();
+        while (time > next_collision.time) {
+            update_atom();
+            update_next_collision();
+        }
         atoms.forEach(function(atom) {
             var pos = atom.get_pos(time);
             atom.entity.x = pos.x;
@@ -324,15 +328,6 @@ function AIR(DOM_name, AVERAGE_VEL, callback) {
 
         requestAnimationFrame(draw);
         renderer.render(stage);
-    }
-
-    function calc() {
-        var time = now();
-        while (time > next_collision.time) {
-            update_atom();
-            update_next_collision();
-        }
-        setTimeout(calc, 15);
     }
 
     function get_speed_block(atom) {
@@ -356,7 +351,6 @@ function AIR(DOM_name, AVERAGE_VEL, callback) {
         setTimeout(stat_momentum, TIMEOUT);
     }
 
-    calc();
     update_speed();
     init_random();
     stat_momentum();

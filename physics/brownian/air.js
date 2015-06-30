@@ -306,6 +306,10 @@ function update_atom() {
 //--- draw
 function draw() {
     var time = now();
+    while (time > next_collision.time) {
+        update_atom();
+        update_next_collision();
+    }
     atoms.forEach(function(atom) {
         var pos = atom.get_pos(time);
         atom.entity.x = pos.x;
@@ -322,15 +326,6 @@ function draw() {
     renderer.render(stage);
 }
 
-function calc() {
-    var time = now();
-    while (time > next_collision.time) {
-        update_atom();
-        update_next_collision();
-    }
-    setTimeout(calc, 15);
-}
-
 function get_speed_block(atom) {
     var speed = atom.vel.len();
     return ~~Math.floor(speed / max_speed * VEL_CHART_CNT);
@@ -342,7 +337,7 @@ function update_speed() {
         max_speed = Math.max(max_speed, atom.vel.len());
     });
     calc_vel_cnt();
-    setTimeout(update_speed, 3000);
+    setTimeout(update_speed, 1000);
 }
 
 var path_lengths = ['<R^2>'];
@@ -428,7 +423,6 @@ function update_chart() {
             y: {
                 label: "<R^2>",
                 padding: {top: 0, bottom: 0, left:0, right:0},
-                tick: {count:4}
             },
             x: {
                 tick: {values: []},
@@ -446,7 +440,5 @@ function update_chart() {
 }
 
 init();
-calc();
-update_speed();
 update_chart();
 draw();
