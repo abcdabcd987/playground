@@ -28,6 +28,10 @@ Vector.prototype.len = function () {
     return Math.sqrt(this.x * this.x + this.y * this.y);
 }
 
+Vector.prototype.identity = function() {
+    return this.mul(1/this.len());
+}
+
 //--- computational geometry
 function dist(r1, r2) {
     return r1.del(r2).len();
@@ -126,8 +130,81 @@ function run() {
     }
     running = true;
 }
+
+function init_circle() {
+    reset();
+    NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00147), 1000);
+    AVERAGE_VEL = 0.04;
+    var center = V(WIDTH/2, HEIGHT/2);
+    var radius = 0;
+    var count = 1;
+    for (var i = 0, j = 0; i < NUM_ATOMS; ++i) {
+        var vel = AVERAGE_VEL + (Math.random()-0.5)/10;
+        var theta = Math.PI*2 * j/count;
+        var x = radius * Math.cos(theta);
+        var y = radius * Math.sin(theta);
+        var vx = AVERAGE_VEL * Math.cos(theta);
+        var vy = AVERAGE_VEL * Math.sin(theta);
+        var atom = new Atom(V(x, y).add(center), V(vx, vy));
+        if (++j == count) {
+            j = 0;
+            radius += RADIUS*3;
+            count += 4;
+        }
+        atoms.push(atom);
+    }
+    run();
+}
+
+function init_circle2() {
+    reset();
+    NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00147), 1000);
+    AVERAGE_VEL = 0.02;
+    var center = V(WIDTH/2, HEIGHT/2);
+    var radius = 0;
+    var count = 1;
+    for (var i = 0, j = 0; i < NUM_ATOMS; ++i) {
+        var vel = AVERAGE_VEL + (Math.random()-0.5)/10;
+        var theta = Math.PI*2 * j/count;
+        var x = radius * Math.cos(theta);
+        var y = radius * Math.sin(theta);
+        var vx = AVERAGE_VEL * Math.cos(theta);
+        var vy = AVERAGE_VEL * Math.sin(theta);
+        var atom = new Atom(V(x, y).add(center), V(-vx, -vy));
+        if (++j == count) {
+            j = 0;
+            radius += RADIUS*6;
+            count += 4;
+        }
+        atoms.push(atom);
+    }
+    run();
+}
+
+function init_line() {
+    reset();
+    AVERAGE_VEL = 0.10;
+    HEIGHT = Math.min(HEIGHT, 200);
+    NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00107), 1000);
+    atoms.push(new Atom(V(WIDTH/3, HEIGHT/2), V(0, 0)));
+
+    var x = WIDTH*2 / 3;
+    var y = RADIUS*2;
+    for (var i = 1; i < NUM_ATOMS; ++i) {
+        atoms.push(new Atom(V(x, y), V(-AVERAGE_VEL, 0)));
+        if (y+RADIUS*3 >= HEIGHT) {
+            x += RADIUS*3;
+            y = RADIUS*2;
+        } else {
+            y += RADIUS*3;
+        }
+    }
+    run();
+}
+
 function init_random() {
     reset();
+    AVERAGE_VEL = 0.013;
     for (var i = 0; i < NUM_ATOMS; ++i) {
         while (true) {
             var x = RADIUS + Math.random() * (WIDTH - 2*RADIUS);
@@ -146,27 +223,6 @@ function init_random() {
         var vy = vel * Math.sin(theta);
         var atom = new Atom(pos, V(vx, vy));
         atoms.push(atom);
-    }
-    run();
-}
-
-function init_line() {
-    reset();
-    AVERAGE_VEL = 0.16;
-    HEIGHT = Math.min(HEIGHT, 200);
-    NUM_ATOMS = Math.min(~~(WIDTH * HEIGHT * 0.00107), 1000);
-    atoms.push(new Atom(V(WIDTH/3, HEIGHT/2), V(0, 0)));
-
-    var x = WIDTH*2 / 3;
-    var y = RADIUS*2;
-    for (var i = 1; i < NUM_ATOMS; ++i) {
-        atoms.push(new Atom(V(x, y), V(-AVERAGE_VEL, 0)));
-        if (y+RADIUS*3 >= HEIGHT) {
-            x += RADIUS*3;
-            y = RADIUS*2;
-        } else {
-            y += RADIUS*3;
-        }
     }
     run();
 }
