@@ -1,0 +1,26 @@
+<!doctype html>
+<head>
+<meta charset="utf-8">
+<title>Keep Right</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+html, body, div {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+.canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+#road { z-index: 0; }
+#vehicle { z-index: 1; }
+</style>
+</head>
+<body>
+<div class="canvas" id="vehicle"></div>
+<div class="canvas" id="road"></div>
+<script src="../../lib/pixi.min.js"></script>
+<script src="right.js"></script>
+</body>
