@@ -4,12 +4,11 @@ C =
         bus:   size: 2, maxSpeed: 5, color: 0x00FF00
         truck: size: 2, maxSpeed: 3, color: 0x0000FF
     pSlow: 0
-    numLanes: 4
-    numCells: 100
-    numVehicles: 10
+    numLanes: 5
+    numCells: 200
+    numVehicles: 200
     sightCells: 10
 
-    cellsPerLane: 50
     rowMargin: 20
     pxCellWidth:  18
     pxCellHeight: 12
@@ -18,8 +17,8 @@ C =
 
 C.rowHeight = C.pxCellHeight * C.numLanes
 C.numRows = Math.ceil C.numCells / C.cellsPerLane
-C.width = C.cellsPerLane * C.pxCellWidth
-C.height = C.numRows * (C.rowHeight + C.rowMargin)
+C.width = C.numCells * C.pxCellWidth
+C.height = C.rowHeight
 
 class Vehicle
     constructor: (@lane, @cell, @speed) ->
@@ -37,25 +36,26 @@ class Truck extends Vehicle
     maxSpeed: C.vehicles.truck.maxSpeed
 
 class Graphics
-    constructor: (@lane, @cell, @color, @size) ->
+    constructor: (@lane, @cell, @color, @size, @index) ->
         @graphics = new PIXI.Graphics()
-        @graphics.lineStyle(1, 0x000000, 1)
-        @graphics.beginFill(@color, 1)
+        @graphics.lineStyle(1, 0x000000, 0.7)
+        @graphics.beginFill(@color, 0.7)
         @graphics.drawRect(0, 0, C.pxCellWidth*@size, C.pxCellHeight)
         @graphics.endFill()
+        @graphics.interactive = true
+        @graphics.on('mousedown', (e) => console.log(@index, vehicles[@index]))
         @oldx = @oldy = @newx = @newy = 0
         @setNewPosition(@lane, @cell)
         @setNewPosition(@lane, @cell)
     setNewPosition: (@lane, @cell) ->
-        row = Math.floor @cell / C.cellsPerLane
         rlane = C.numLanes - @lane - 1
         @oldx = @newx
         @oldy = @newy
-        @newx = @cell % C.cellsPerLane * C.pxCellWidth + C.pxCellWidth/2
-        @newy = row*(C.rowHeight+C.rowMargin) + rlane*C.pxCellHeight
-        #if @newx < @oldx
-        #    @oldx = 0
-        #    @oldy = @newy
+        @newx = @cell * C.pxCellWidth + C.pxCellWidth/2
+        @newy = rlane*C.pxCellHeight
+        if (@newx < @oldx)
+            @oldx = @newx
+            @oldy = @newy
     update: (drawTick) ->
         dx = (@newx-@oldx) / C.ticksPerSimulation
         dy = (@newy-@oldy) / C.ticksPerSimulation
@@ -70,52 +70,57 @@ cells    = null
 renderer = null
 stage    = null
 
-# Step1: Moving
 move = (vehicle) ->
     # (a) Determine the speed
     v = vehicle.speed
     v = v+1 if v < vehicle.maxSpeed
-    v = v-1 if Math.random() < C.pSlow
-    gap = getGap(vehicle)
-    v = gap if v > gap
-    v = 3 if v < 3
+    v = v-1 if v > 3 and Math.random() < C.pSlow
+    fve = getFrontVehicle(vehicle.lane, vehicle.cell+vehicle.size)
+    gap = if fve then fve.cell-vehicle.cell-vehicle.size else Infinity
+    #relv = if fve then v-fve.speed else 0
+    #v = gap + fve.speed if gap < relv
+    relv = if fve then v-3 else 0
+    v = gap + 3 if gap < relv
 
     # (b) Determine the location
     vehicle.cell = inc(vehicle.cell, v)
     vehicle.speed = v
 
-# Step2: Lane Change
 laneChange = (vehicle) ->
     # (a) Change to the left lane
-    if vehicle.lane < C.numLanes-1
-        gap = getGap(vehicle)
+    if vehicle.lane < C.numLanes-1 and vehicle.speed < vehicle.maxSpeed
+        fgap = getGap(vehicle)
         lfgap = getLeftFrontGap(vehicle)
         lbgap = getLeftBehindGap(vehicle)
-        lbv = getBehindVehicle(vehicle.lane+1, vehicle.cell)
-        lbv ?= 0
-        if gap < vehicle.maxSpeed and gap < lfgap and lbgap > lbv
+        if fgap.gap < vehicle.maxSpeed and lbgap.gap > lbgap.relv and lfgap.gap > lfgap.relv
             return +1
 
     # (b) Change to the right lane
     if vehicle.lane > 0
         rfgap = getRightFrontGap(vehicle)
         rbgap = getRightBehindGap(vehicle)
-        rbv = getBehindVehicle(vehicle.lane-1, vehicle.cell)
-        rbv ?= 0
-        if rfgap > vehicle.speed and rbgap > rbv
+        if rfgap.gap > rfgap.relv and rbgap.gap > rbgap.relv
             return -1
     0
 
 # Simulate Calculation
 simulate = ->
-    newv = clone vehicles
-    move v for v in newv
     laneChanges = (laneChange v for v in vehicles)
     for i in [0 .. C.numVehicles-1]
-        now = newv[i]
-        now.lane += laneChanges[i]
         old = vehicles[i]
         cells[old.lane][old.cell] = null
+    for i in [0 .. C.numVehicles-1]
+        now = vehicles[i]
+        now.lane += laneChanges[i]
+        cells[now.lane][now.cell] = now
+
+    newv = clone vehicles
+    move now for now in newv
+    for i in [0 .. C.numVehicles-1]
+        old = vehicles[i]
+        cells[old.lane][old.cell] = null
+    for i in [0 .. C.numVehicles-1]
+        now = newv[i]
         cells[now.lane][now.cell] = now
     vehicles = newv
 
@@ -136,25 +141,41 @@ getBehindVehicle = (lane, cell)->
         --j
     cells[lane][j]
 
+returnFrontGap = (vehicle, v) ->
+    if v
+        gap: v.cell-vehicle.cell-vehicle.size
+        relv: vehicle.speed-v.speed
+    else
+        gap: Infinity
+        relv: 0
+
+returnBehindGap = (vehicle, v) ->
+    if v
+        gap: vehicle.cell-v.cell-v.size
+        relv: v.speed-vehicle.speed
+    else
+        gap: Infinity
+        relv: 0
+
 getGap = (vehicle) ->
     v = getFrontVehicle(vehicle.lane, vehicle.cell+vehicle.size)
-    if v then v.cell-vehicle.cell-vehicle.size else Infinity
+    returnFrontGap(vehicle, v)
 
 getLeftFrontGap = (vehicle) ->
     v = getFrontVehicle(vehicle.lane+1, vehicle.cell)
-    if v then v.cell-vehicle.cell-vehicle.size else Infinity
+    returnFrontGap(vehicle, v)
 
 getRightFrontGap = (vehicle) ->
     v = getFrontVehicle(vehicle.lane-1, vehicle.cell)
-    if v then v.cell-vehicle.cell-vehicle.size else Infinity
+    returnFrontGap(vehicle, v)
 
 getLeftBehindGap = (vehicle) ->
     v = getBehindVehicle(vehicle.lane+1, vehicle.cell)
-    if v then vehicle.cell-v.cell-v.size else Infinity
+    returnBehindGap(vehicle, v)
 
 getRightBehindGap = (vehicle) ->
     v = getBehindVehicle(vehicle.lane-1, vehicle.cell)
-    if v then vehicle.cell-v.cell-v.size else Infinity
+    returnBehindGap(vehicle, v)
 
 random = (hi) ->
     Math.floor Math.random() * hi
@@ -169,19 +190,20 @@ drawRoad = ->
     document.getElementById('road').appendChild(road_renderer.view)
     g = new PIXI.Graphics()
     dashInterval = C.pxCellWidth
-    for row in [0 .. C.numRows-1]
-        g.lineStyle(2, 0x000000, 1)
-        g.drawRect(0, row*(C.rowHeight+C.rowMargin), C.width, C.rowHeight)
-        g.endFill()
 
-        y = row*(C.rowHeight+C.rowMargin)
-        for lane in [0 .. C.numLanes-1]
-            g.lineStyle(1, 0x000000, 1)
-            for x in [0 .. C.width-dashInterval] by dashInterval*2
-                g.moveTo(x, y)
-                g.lineTo(x+dashInterval, y)
-            g.endFill()
-            y += C.pxCellHeight
+    g.lineStyle(2, 0x000000, 1)
+    g.drawRect(0, 0, C.width, C.rowHeight)
+    g.endFill()
+
+    y = 0
+    for lane in [0 .. C.numLanes-1]
+        g.lineStyle(1, 0x000000, 1)
+        for x in [0 .. C.width-dashInterval] by dashInterval*2
+            g.moveTo(x, y)
+            g.lineTo(x+dashInterval, y)
+        g.endFill()
+        y += C.pxCellHeight
+
     road_stage.addChild g
     road_renderer.render(road_stage)
 
@@ -208,7 +230,7 @@ init = ->
                 t = "bus"
             else
                 t = "car"
-            v = random(C.vehicles[t].maxSpeed - 2)
+            v = random(C.vehicles[t].maxSpeed - 3) + 3
             l = C.vehicles[t].size
             y2 = y
             step = 0
@@ -224,7 +246,7 @@ init = ->
         vehicles.push now
         cells[x][y] = now
 
-        g = new Graphics(x, y, C.vehicles[t].color, now.size)
+        g = new Graphics(x, y, C.vehicles[t].color, now.size, i)
         graphics.push g
         stage.addChild g.graphics
 
@@ -232,7 +254,7 @@ init = ->
     draw()
 
 drawTick = 0
-window.draw = ->
+draw = ->
     requestAnimationFrame(draw)
     ++drawTick
     if drawTick == C.ticksPerSimulation
