@@ -13,6 +13,8 @@ html, body {
     height: 100%;
     width: 100%;
     overflow: hidden;
+    font-family: monospace;
+    font-size: 10px;
 }
 
 h3 {
@@ -42,21 +44,24 @@ ul {
 
 <canvas id="myCanvas"></canvas>
 <div id="toolbox">
-    <h3>Presets</h3>
+    <h3>presets</h3>
     <ul>
         <li><button onclick="AtWood(2, 1, Math.PI/2);">μ = 2, θ = 90°</button></li>
         <li><button onclick="AtWood(16, 1, Math.PI/2);">μ = 16, θ = 90°</button></li>
     </ul>
 
-    <h3>Custom</h3>
+    <h3>custom</h3>
     <ul>
-        <li>μ <input id="custom-mu" type="text"></li>
-        <li>θ <input id="custom-theta" type="theta"></li>
+        <li>μ <input id="custom-mu" type="text" style="width: 5em;"></li>
+        <li>θ <input id="custom-theta" type="theta" style="width: 5em;"></li>
         <li><button onclick="AtWood($('custom-mu').value, 1, $('custom-theta').value / 180 * Math.PI);">run</button></li>
     </ul>
 
-    <h3>Speed</h3>
+    <h3>speed</h3>
     <div><input id="speed-slider" type="range" min="0.01" max="0.05" step="0.001" value="0.01" oninput="set_demo_speed();"></div>
+
+    <h3>calculation</h3>
+    <div><span id="elapse-time"></span> / frame<br>should be less than 15ms</div>
 </div>
 
 <script src="../../lib/runge_kutta.js"></script>

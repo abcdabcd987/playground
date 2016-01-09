@@ -47,6 +47,8 @@ function AtWood(mass_large, mass_small, theta0) {
 
     //------ animation
     view.onFrame = function(event) {
+        var st = (new Date()).getTime();
+
         var y0 = [r, pr, theta, ptheta];
         var y = runge_kutta(f, 0, y0, demo_speed);
         r = y[0], pr = y[1], theta = y[2], ptheta = y[3];
@@ -59,6 +61,9 @@ function AtWood(mass_large, mass_small, theta0) {
         c_rope.segments[3].point = c_small.position;
 
         c_track.add(c_small.position);
+
+        var ed = (new Date()).getTime();
+        document.getElementById("elapse-time").innerHTML = (ed-st).toFixed(0) + "ms"; 
     }
 }
 
