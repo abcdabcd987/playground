@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
+<title>Arnold's Cat Map</title>
+<style type="text/css">
+html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    min-width: 100%;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: monospace;
+    font-size: 10px;
+}
+
+h3 {
+    font-family: monospace;
+    font-size: 10px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+button {
+    font-family: monospace;
+}
+
+ul {
+    margin-top: 3px;
+}
+
+#toolbox {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 200px;
+}
+</style>
+</head>
+<body>
+
+<canvas id="myCanvas"></canvas>
+<div id="toolbox">
+    <h3>Iteration <span id="iterations"></span></h3>
+
+    <h3>speed <span id="speed">60</span>x</h3>
+    <div><input id="speed-slider" type="range" min="1" max="60" value="60" step="1" oninput="set_demo_speed();"></div>
+</div>
+
+<script src="../../lib/runge_kutta.js"></script>
+<script src="../../lib/paper/paper-full.min.js"></script>
+<script>
+function $(x) { return document.getElementById(x); }
+
+var canvas = document.getElementById('myCanvas');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+paper.install(window);
+paper.setup(document.getElementById('myCanvas'));
+var demo_speed = 1;
+</script>
+<script src="arnold.js"></script>
+<script>
+Arnold('sheng_li.png');
+</script>
+</body>
+</html>
