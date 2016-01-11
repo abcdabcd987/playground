@@ -54,7 +54,7 @@ ul {
     <ul>
         <li>μ <input id="custom-mu" type="text" style="width: 5em;"></li>
         <li>θ <input id="custom-theta" type="theta" style="width: 5em;"></li>
-        <li><button onclick="AtWood($('custom-mu').value, 1, $('custom-theta').value / 180 * Math.PI);">run</button></li>
+        <li><button onclick="AtWood(Number($('custom-mu').value), 1, Number($('custom-theta').value) / 180 * Math.PI);">run</button></li>
     </ul>
 
     <h3>speed</h3>
@@ -62,6 +62,9 @@ ul {
 
     <h3>calculation</h3>
     <div><span id="elapse-time"></span> / frame<br>should be less than 15ms</div>
+
+    <h3>debug</h3>
+    <div id="debug"></div>
 </div>
 
 <script src="../../lib/runge_kutta.js"></script>
