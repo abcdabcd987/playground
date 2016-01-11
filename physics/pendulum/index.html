@@ -42,7 +42,7 @@ ul {
 </head>
 <body>
 
-<canvas id="myCanvas"></canvas>
+<canvas id="myCanvas" keepalive="true"></canvas>
 <div id="toolbox">
     <h3>presets</h3>
     <ul>
@@ -54,14 +54,16 @@ ul {
     <ul>
         <li>θ1 <input id="custom-theta1" type="text" style="width: 5em;"></li>
         <li>θ2 <input id="custom-theta2" type="text" style="width: 5em;"></li>
-        <li><button onclick="Pendulum($('custom-theta1').value / 180 * Math.PI, $('custom-theta2').value / 180 * Math.PI);">run</button></li>
+        <li><button onclick="Pendulum(Number($('custom-theta1').value) / 180 * Math.PI, Number($('custom-theta2').value) / 180 * Math.PI);">run</button></li>
     </ul>
 
-    <h3>speed <span id="speed">5</span>x</h3>
-    <div><input id="speed-slider" type="range" min="1" max="20" value="5" step="1" oninput="set_demo_speed();"></div>
+    <h3>speed <span id="speed">10</span>x</h3>
+    <div><input id="speed-slider" type="range" min="1" max="40" value="10" step="1" oninput="set_demo_speed();"></div>
 
     <h3>track <span id="track-points">300</span> points</h3>
-    <div><input id="track-slider" type="range" min="0" max="1200" value="300" step="1" oninput="set_demo_track_points();"></div>
+    <div><input id="track-slider" type="range" min="0" max="2400" value="300" step="1" oninput="set_demo_track_points();"></div>
+    <h3>alpha <span id="alpha">0.2</span></h3>
+    <div><input id="alpha-slider" type="range" min="0" max="1" value="0.2" step="0.01" oninput="set_demo_track_alpha();"></div>
 
     <h3>status</h3>
     <div>calc: <span id="calc-time"></span>ms <br>fps : <span id="fps"></span></div>
@@ -77,8 +79,9 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 paper.install(window);
 paper.setup(document.getElementById('myCanvas'));
-var demo_speed = 5;
+var demo_speed = 10;
 var demo_track_points = 300;
+var demo_track_alpha = 0.2;
 </script>
 <script src="pendulum.js"></script>
 </body>

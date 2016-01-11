@@ -2,7 +2,7 @@ function Pendulum(init_theta1, init_theta2) {
     paper.project.clear();
 
     //------ canvas constant
-    var PIVOT = new Point(window.innerWidth/2, window.innerHeight/3);
+    var PIVOT = new Point(window.innerWidth/2, window.innerHeight*2/7);
     var PIVOT_RADIUS = 3;
     var STATUS_REFRESH_INTERVAL = 3;
 
@@ -13,6 +13,7 @@ function Pendulum(init_theta1, init_theta2) {
     var c_rope = new Path();
     var c_track1 = new Path();
     var c_track2 = new Path();
+    var c_track = new Raster();
 
     c_pivot.fillColor = 'black';
     c_ball1.fillColor = 'red';
@@ -25,9 +26,13 @@ function Pendulum(init_theta1, init_theta2) {
 
     c_track1.strokeColor = 'red';
     c_track2.strokeColor = 'blue';
+    c_track1.strokeWidth = 2;
+    c_track2.strokeWidth = 2;
+    c_track.size = view.size;
+    c_track.position = view.center;
 
     //------ variables
-    var l = 100;
+    var l = window.innerHeight/4;
     var m = 1;
     var g = 10;
     var theta1 = init_theta1;
@@ -65,6 +70,7 @@ function Pendulum(init_theta1, init_theta2) {
             c_track2.add(c_ball2.position);
             while (c_track1.segments.length > demo_track_points) c_track1.removeSegment(0);
             while (c_track2.segments.length > demo_track_points) c_track2.removeSegment(0);
+            c_track.setPixel(c_ball2.position, new Color(0, 0, 255, demo_track_alpha));
         }
 
         var ed = (new Date()).getTime();
@@ -81,13 +87,18 @@ function Pendulum(init_theta1, init_theta2) {
 }
 
 function set_demo_speed() {
-    demo_speed = $('speed-slider').value;
+    demo_speed = Number($('speed-slider').value);
     $('speed').innerHTML = demo_speed;
 }
 
 function set_demo_track_points() {
-    demo_track_points = $('track-slider').value;
+    demo_track_points = Number($('track-slider').value);
     $('track-points').innerHTML = demo_track_points;
+}
+
+function set_demo_track_alpha() {
+    demo_track_alpha = Number($('alpha-slider').value);
+    $('alpha').innerHTML = demo_track_alpha.toFixed(2);
 }
 
 Pendulum(Math.PI/2, 5*Math.PI/4);

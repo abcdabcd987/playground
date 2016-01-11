@@ -44,10 +44,12 @@ ul {
 
 <canvas id="myCanvas"></canvas>
 <div id="toolbox">
-    <h3>Iteration <span id="iterations"></span></h3>
+    <h3>Iteration <span id="iterations">0</span></h3>
 
     <h3>speed <span id="speed">60</span>x</h3>
     <div><input id="speed-slider" type="range" min="1" max="60" value="60" step="1" oninput="set_demo_speed();"></div>
+
+    <div><button id="restart" onclick="start();">Restart</button></div>
 </div>
 
 <script src="../../lib/runge_kutta.js"></script>
@@ -64,7 +66,11 @@ var demo_speed = 1;
 </script>
 <script src="arnold.js"></script>
 <script>
-Arnold('sheng_li.png');
+function start() {
+    $("iterations").innerHTML = "0";
+    Arnold('sheng_li.png');
+}
+start();
 </script>
 </body>
 </html>

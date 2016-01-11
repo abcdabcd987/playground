@@ -42,12 +42,20 @@ ul {
 </head>
 <body>
 
-<canvas id="myCanvas"></canvas>
+<canvas id="myCanvas" keepalive="true"></canvas>
 <div id="toolbox">
     <h3>presets</h3>
     <ul>
+    	<li><button onclick="AtWood(1.665, 1, Math.PI/2);">A "smile" orbit</button></li>
+    	<li><button onclick="AtWood(2.394, 1, Math.PI/2);">μ = 2.394, θ = 90°</button></li>
         <li><button onclick="AtWood(2, 1, Math.PI/2);">μ = 2, θ = 90°</button></li>
+        <li><button onclick="AtWood(3, 1, Math.PI/2);">μ = 3, θ = 90°</button></li>
+        <li><button onclick="AtWood(5, 1, Math.PI/2);">μ = 5, θ = 90°</button></li>
+        <li><button onclick="AtWood(6, 1, Math.PI/2);">μ = 6, θ = 90°</button></li>
         <li><button onclick="AtWood(16, 1, Math.PI/2);">μ = 16, θ = 90°</button></li>
+        <li><button onclick="AtWood(19, 1, Math.PI/2);">μ = 19, θ = 90°</button></li>
+        <li><button onclick="AtWood(21, 1, Math.PI/2);">μ = 21, θ = 90°</button></li>
+        <li><button onclick="AtWood(24, 1, Math.PI/2);">μ = 24, θ = 90°</button></li>
     </ul>
 
     <h3>custom</h3>
@@ -57,14 +65,12 @@ ul {
         <li><button onclick="AtWood(Number($('custom-mu').value), 1, Number($('custom-theta').value) / 180 * Math.PI);">run</button></li>
     </ul>
 
-    <h3>speed</h3>
-    <div><input id="speed-slider" type="range" min="0.01" max="0.05" step="0.001" value="0.01" oninput="set_demo_speed();"></div>
+    <h3>speed <span id="speed">5</span>x</h3>
+    <div><input id="speed-slider" type="range" min="1" max="100" value="5" step="1" oninput="set_demo_speed();"></div>
 
-    <h3>calculation</h3>
-    <div><span id="elapse-time"></span> / frame<br>should be less than 15ms</div>
+    <h3>status</h3>
+    <div>calc: <span id="calc-time"></span>ms <br>fps : <span id="fps"></span></div>
 
-    <h3>debug</h3>
-    <div id="debug"></div>
 </div>
 
 <script src="../../lib/runge_kutta.js"></script>
@@ -77,7 +83,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 paper.install(window);
 paper.setup(document.getElementById('myCanvas'));
-var demo_speed = 0.01;
+var demo_speed = 5;
 </script>
 <script src="atwood.js"></script>
 </body>
